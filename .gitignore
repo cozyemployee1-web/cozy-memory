@@ -3,3 +3,5 @@
 *.egg-info/
 dist/
 build/
+-e node_modules/
+box-test/node_modules/
