@@ -1,0 +1,19 @@
+{
+  "name": "cozy-research-agent",
+  "version": "0.1.0",
+  "description": "Research agent running Pydantic AI inside Upstash Box",
+  "type": "module",
+  "scripts": {
+    "dispatch": "tsx src/dispatch.ts",
+    "test": "tsx src/test-local.ts"
+  },
+  "dependencies": {
+    "@upstash/box": "latest",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^22.0.0"
+  }
+}
