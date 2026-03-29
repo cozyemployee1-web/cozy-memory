@@ -1,7 +1,8 @@
--e __pycache__/
+__pycache__/
 *.pyc
 *.egg-info/
 dist/
 build/
--e node_modules/
-box-test/node_modules/
+node_modules/
+.venv/
+*.log
