@@ -8,12 +8,12 @@
     "test": "tsx src/test-local.ts"
   },
   "dependencies": {
-    "@upstash/box": "latest",
-    "zod": "^3.23.0"
+    "@upstash/box": "^0.1.30",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.4.0",
-    "@types/node": "^22.0.0"
+    "typescript": "^5.4.0"
   }
 }
