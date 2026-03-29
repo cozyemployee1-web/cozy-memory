@@ -29,6 +29,7 @@ Usage:
 
 from .config import CozyConfig, LibSQLConfig, RedisConfig, SearchConfig, VectorConfig
 from .libsql_store import Entity, LibSQLStore
+from .qstash_store import QStashConfig, QStashStore
 from .redis_store import RedisStore
 from .search_store import SearchResult, SearchStore
 from .sync import MemorySync
@@ -52,6 +53,8 @@ __all__ = [
     "SearchResult",
     "LibSQLStore",
     "LibSQLConfig",
+    "QStashStore",
+    "QStashConfig",
     "Entity",
     "MemorySync",
 ]

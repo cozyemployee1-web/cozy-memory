@@ -82,7 +82,7 @@ class RedisStore:
         """Check-and-set for deduplication. Returns True if NEW (first call).
         Returns False if duplicate (already seen within TTL window).
         Default TTL: 48 hours."""
-        result = self.redis.set(self._key(f"dedup:{key}), "1", ex=ttl, nx=True)
+        result = self.redis.set(self._key(f"dedup:{key}"), "1", ex=ttl, nx=True)
         return result is not None
 
     # ── Rate Limiting ─────────────────────────────────────────

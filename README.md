@@ -1,6 +1,6 @@
 # Cozy Memory 🧶
 
-Unified memory system for AI agents — four backends, one clean interface.
+Unified memory system for AI agents — five backends, one clean interface.
 
 ## What Is This?
 
@@ -9,9 +9,9 @@ AI agents need different types of memory at different speeds. Cozy Memory gives 
 | Backend | Use Case | Speed |
 |---------|----------|-------|
 | **Upstash Redis** | Hot cache, session state, queues, rate limiting | ~5ms |
-| **Upstash Vector** | Semantic search ("what's similar to this?") | ~50ms |
-| **Upstash Search** | Full-text keyword search ("find exact term") | ~50ms |
+| **Upstash Vector** | Semantic search with built-in BGE embeddings | ~50ms |
 | **libSQL** | Local persistence, source of truth, graph relations | Local |
+| **Upstash QStash** | Guaranteed message delivery, scheduling, retries | Async |
 
 Think of it like a human brain:
 - **Redis** = working memory (what you're thinking about *right now*)
@@ -97,28 +97,33 @@ stats = mem.sync.sync_all_entities()
 # ── Health ───────────────────────────────────────────────
 
 health = mem.health()
-# → {"redis": True, "vector": True, "search": True, "libsql": True}
+# → {"redis": True, "vector": True, "search": True, "libsql": True, "qstash": True}
 ```
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    CozyMemory.recall()                   │
-│                   .store()  .sync()                      │
-├─────────┬──────────┬──────────┬─────────────────────────┤
-│  Redis  │  Vector  │  Search  │         libSQL          │
-│         │          │          │                         │
-│ Hot     │ Semantic │ Keyword  │ Persistent              │
-│ cache   │ search   │ search   │ storage                 │
-│ Queues  │ BGE      │ Full-    │ Graph                   │
-│ State   │ embed    │ text     │ relations               │
-│ Rate    │ 1024d    │ index    │ Source                  │
-│ limit   │ auto     │ ranked   │ of truth                │
-└─────────┴──────────┴──────────┴─────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                    CozyMemory.recall()                    │
+│                   .store()  .sync()                       │
+├──────────┬──────────┬────────────────────────────────────┤
+│  Redis   │  Vector  │           libSQL                   │
+│          │          │                                    │
+│ Hot      │ Semantic │ Persistent                          │
+│ cache    │ search   │ storage                             │
+│ Queues   │ BGE      │ Graph                               │
+│ State    │ embed    │ relations                           │
+│ Rate     │ 1024d    │ Source                              │
+│ limit    │ auto     │ of truth                            │
+├──────────┴──────────┴────────────────────────────────────┤
+│                    Upstash QStash                         │
+│                                                          │
+│  Guaranteed delivery · Auto-retries · Scheduling         │
+│  Dead letter queue · Deduplication · Fan-out             │
+└──────────────────────────────────────────────────────────┘
          ↕               ↕               ↕
-   Agent sessions    Cloud agents    Local daemon
-   Cron jobs         Modal workers   CLI tools
+   Sub-agents        Swarm workers    Cron jobs
+   Chat bots         Modal agents     Webhooks
 ```
 
 ## Configuration
@@ -130,13 +135,14 @@ All config via environment variables:
 UPSTASH_REDIS_REST_URL=https://your-redis.upstash.io
 UPSTASH_REDIS_REST_TOKEN=your-token
 
-# Upstash Vector
+# Upstash Vector (also used for search via auto-embed)
 UPSTASH_VECTOR_REST_URL=https://your-vector.upstash.io
 UPSTASH_VECTOR_REST_TOKEN=your-token
 
-# Upstash Search
-UPSTASH_SEARCH_REST_URL=https://your-search.upstash.io
-UPSTASH_SEARCH_REST_TOKEN=your-token
+# Upstash QStash (guaranteed message delivery)
+QSTASH_URL=https://qstash.upstash.io
+QSTASH_TOKEN=your-token
+QSTASH_SIGNING_KEY=your-signing-key
 
 # libSQL (optional, defaults to ./memory.db)
 COZY_LIBSQL_PATH=/path/to/memory.db
@@ -215,6 +221,40 @@ When `strategy=AUTO` (default), Cozy Memory picks the backend based on query heu
 | Fallback | All merged | If primary returns nothing |
 
 You can always override with `strategy=RecallStrategy.VECTOR` etc.
+
+### QStash — Guaranteed Delivery
+
+Best for: messages that must arrive, even if connections drop.
+
+```python
+# Publish with guaranteed delivery
+mem.qstash.publish_json(
+    url="https://your-webhook.com/results",
+    data={"topic": "vLLM", "findings": "..."},
+    retries=3,  # auto-retry up to 3 times
+)
+
+# Delayed delivery
+mem.qstash.publish(
+    url="https://your-endpoint.com/remind",
+    body="Check research status",
+    delay=3600,  # deliver in 1 hour
+)
+
+# Deduplicated delivery (won't send same ID twice)
+mem.qstash.publish_json(
+    url="https://your-endpoint.com/callback",
+    data={"result": "..."},
+    dedup_id=mem.qstash.make_dedup_id("research", "vllm", "2026-03-29"),
+)
+
+# Scheduled (cron)
+mem.qstash.schedule(
+    url="https://your-endpoint.com/daily",
+    body={"task": "daily-research"},
+    cron="0 3 * * *",  # daily at 3 AM
+)
+```
 
 ## Use Cases
 

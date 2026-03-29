@@ -1,4 +1,8 @@
-"""Upstash Search backend — full-text keyword search on vector data."""
+"""Upstash Search backend — falls back to Vector index for search operations.
+
+The Upstash Search index is a hybrid dense+sparse index requiring explicit vectors.
+For simplicity, we use the Vector index (which auto-embeds) for both semantic and
+keyword-like searches. This module wraps Vector with search-oriented convenience."""
 
 from __future__ import annotations
 
@@ -6,9 +10,8 @@ import json
 from dataclasses import dataclass
 from typing import Optional
 
-import httpx
-
-from .config import SearchConfig
+from .vector_store import VectorStore, VectorResult
+from .config import VectorConfig
 
 
 @dataclass
@@ -20,24 +23,13 @@ class SearchResult:
 
 
 class SearchStore:
-    """Full-text search on top of Upstash Vector data."""
+    """Search layer on top of Vector index. Uses semantic search as the backend."""
 
-    def __init__(self, config: SearchConfig | None = None):
-        self.config = config or SearchConfig.from_env()
-        self._client: httpx.Client | None = None
-
-    @property
-    def client(self) -> httpx.Client:
-        if self._client is None:
-            self._client = httpx.Client(
-                base_url=self.config.url,
-                headers={
-                    "Authorization": f"Bearer {self.config.token}",
-                    "Content-Type": "application/json",
-                },
-                timeout=30.0,
-            )
-        return self._client
+    def __init__(self, vector_store: VectorStore | None = None, vector_config: VectorConfig | None = None):
+        if vector_store:
+            self.vector = vector_store
+        else:
+            self.vector = VectorStore(vector_config)
 
     def search(
         self,
@@ -46,33 +38,23 @@ class SearchStore:
         namespace: str = "",
         filter_expr: str | None = None,
     ) -> list[SearchResult]:
-        """Full-text search with keyword matching."""
-        payload = {
-            "query": query,
-            "topK": top_k,
-        }
-        if namespace:
-            payload["namespace"] = namespace
-        if filter_expr:
-            payload["filter"] = filter_expr
-
-        resp = self.client.post("/search", json=payload)
-        resp.raise_for_status()
-        results = resp.json().get("result", [])
-
+        """Search using the Vector index (auto-embeds query)."""
+        results = self.vector.query(
+            text=query,
+            top_k=top_k,
+            namespace=namespace,
+            include_metadata=True,
+            filter_expr=filter_expr,
+        )
         return [
             SearchResult(
-                id=r["id"],
-                score=r.get("score", 0.0),
-                content=r.get("content", ""),
-                metadata=r.get("metadata"),
+                id=r.id,
+                score=r.score,
+                content=r.metadata.get("name", r.metadata.get("description", r.id)),
+                metadata=r.metadata,
             )
             for r in results
         ]
 
     def ping(self) -> bool:
-        try:
-            resp = self.client.post("/search", json={"query": "test", "topK": 1})
-            return resp.status_code < 500
-        except Exception:
-            return False
+        return self.vector.ping()

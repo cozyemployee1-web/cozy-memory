@@ -9,6 +9,7 @@ from typing import Any
 
 from .config import CozyConfig
 from .libsql_store import Entity, LibSQLStore
+from .qstash_store import QStashConfig, QStashStore
 from .redis_store import RedisStore
 from .search_store import SearchStore
 from .sync import MemorySync
@@ -59,8 +60,9 @@ class CozyMemory:
         self.config = config or CozyConfig.from_env()
         self.redis = RedisStore(self.config.redis)
         self.vector = VectorStore(self.config.vector)
-        self.search = SearchStore(self.config.search)
+        self.search = SearchStore(vector_store=self.vector)
         self.libsql = LibSQLStore(self.config.libsql)
+        self.qstash = QStashStore()
         self.sync = MemorySync(self.libsql, self.vector, self.redis)
 
     # ── Core Recall ────────────────────────────────────────────
@@ -70,7 +72,7 @@ class CozyMemory:
         query: str,
         strategy: RecallStrategy = RecallStrategy.AUTO,
         top_k: int = 5,
-        namespace: str = "memory",
+        namespace: str = "",
     ) -> list[RecallResult]:
         """Query memory. Strategy=AUTO picks the best backend based on query."""
 
@@ -225,6 +227,7 @@ class CozyMemory:
             "vector": self.vector.ping(),
             "search": self.search.ping(),
             "libsql": self.libsql.ping(),
+            "qstash": self.qstash.ping(),
         }
 
     def stats(self) -> dict:

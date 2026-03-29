@@ -19,7 +19,7 @@ class MemorySync:
         libsql: LibSQLStore,
         vector: VectorStore,
         redis: RedisStore,
-        namespace: str = "memory",
+        namespace: str = "",
     ):
         self.libsql = libsql
         self.vector = vector
