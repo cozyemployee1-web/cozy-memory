@@ -2,6 +2,7 @@
 Cozy Research Agent — runs inside Upstash Box.
 
 Uses Pydantic AI for structured decision-making and output.
+Logfire for observability (traces, costs, agent reasoning).
 Communicates with Cozy Memory for shared context.
 Writes findings to /work/findings.json for Box webhook delivery.
 """
@@ -12,9 +13,20 @@ import os
 import sys
 from pathlib import Path
 
+import logfire
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIModel
+
+# ── Logfire Setup ──────────────────────────────────────────────
+# Logfire token from env, or skip if not set
+logfire_token = os.environ.get("LOGFIRE_TOKEN", "")
+if logfire_token:
+    logfire.configure(send_to_logfire="if-token-present", token=logfire_token)
+    logfire.info("Cozy Research Agent starting", topic=os.environ.get("RESEARCH_TOPIC", "unknown"))
+else:
+    logfire.configure(send_to_logfire=False)
+    logfire.info("Logfire running in local-only mode (no token set)")
 
 
 # ── Structured Output Models ────────────────────────────────────
@@ -197,18 +209,23 @@ async def write_notes(ctx: RunContext[AgentDeps], filename: str, content: str) -
 
 async def run_research(topic: str) -> ResearchResult:
     """Run research on a topic and return structured results."""
-    deps = AgentDeps(
-        cozy_memory_url=os.environ.get("UPSTASH_VECTOR_REST_URL", ""),
-        cozy_memory_token=os.environ.get("UPSTASH_VECTOR_REST_TOKEN", ""),
-        working_dir="/work",
-    )
+    with logfire.span("research", topic=topic) as span:
+        deps = AgentDeps(
+            cozy_memory_url=os.environ.get("UPSTASH_VECTOR_REST_URL", ""),
+            cozy_memory_token=os.environ.get("UPSTASH_VECTOR_REST_TOKEN", ""),
+            working_dir="/work",
+        )
 
-    result = await research_agent.run(
-        f"Research the following topic thoroughly: {topic}",
-        deps=deps,
-    )
+        result = await research_agent.run(
+            f"Research the following topic thoroughly: {topic}",
+            deps=deps,
+        )
 
-    return result.output
+        span.set_attribute("findings_count", len(result.output.findings))
+        span.set_attribute("assumptions_count", len(result.output.assumptions))
+        logfire.info("Research complete", topic=topic, findings=len(result.output.findings))
+
+        return result.output
 
 
 def main():

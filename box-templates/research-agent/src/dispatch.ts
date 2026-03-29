@@ -84,7 +84,7 @@ async function dispatchResearch(opts: DispatchOptions): Promise<{
       ).text(),
     });
 
-    // Upload Cozy Memory credentials
+    // Upload Cozy Memory + Logfire credentials
     await box.files.write({
       path: "/work/.env",
       content: [
@@ -93,7 +93,9 @@ async function dispatchResearch(opts: DispatchOptions): Promise<{
         `UPSTASH_REDIS_REST_URL=${process.env.UPSTASH_REDIS_REST_URL}`,
         `UPSTASH_REDIS_REST_TOKEN=${process.env.UPSTASH_REDIS_REST_TOKEN}`,
         `OPENAI_API_KEY=${process.env.OPENAI_API_KEY}`,
+        `LOGFIRE_TOKEN=${process.env.LOGFIRE_TOKEN || ""}`,
         `AGENT_MODEL=${opts.model || "gpt-4o-mini"}`,
+        `RESEARCH_TOPIC=${opts.topic}`,
       ].join("\n"),
     });
 
