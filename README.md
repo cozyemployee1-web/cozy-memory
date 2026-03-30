@@ -304,6 +304,38 @@ libSQL (source of truth)
 
 Call `mem.sync.sync_all_entities()` to push everything from libSQL to the cloud backends.
 
+## Box Templates
+
+The `box-templates/` directory contains ready-to-use scripts for running AI agents inside [Box](https://box.com) serverless environments (Upstash's Python sandbox):
+
+### `box-templates/research-agent/`
+
+End-to-end patterns for Box-based research agents:
+
+| File | Purpose |
+|------|---------|
+| `agent.py` | Main Pydantic AI research agent (runs inside Box) |
+| `pipeline.ts` | Full E2E pipeline: trigger → Box → results |
+| `box-connect.mjs` | Connect to and inspect existing Box instances |
+| `create-snapshot.ts` | Save a configured Box environment as a reusable snapshot |
+| `test-box.ts` | Quick smoke test — create a Box, run code, verify output |
+| `test-box2.ts` | Extended test scenarios for Box API patterns |
+| `test-fresh.ts` | Test a fresh Box environment from scratch |
+| `test-list.mjs` | List all running Box instances |
+| `test-snapshot.ts` | Test snapshot creation and restore |
+| `practice.mjs` / `practice2.mjs` | Exploratory scripts for learning Box patterns |
+| `cleanup-boxes.ts` | Terminate all running Box instances (cost cleanup) |
+| `webhook.py` | Webhook receiver for Box result callbacks |
+
+**Quick start:**
+```bash
+cd box-templates/research-agent
+npm install
+npx ts-node test-box.ts
+```
+
+**Requirements:** Set `OPENROUTER_API_KEY` and Box API credentials in your environment.
+
 ## License
 
 MIT
