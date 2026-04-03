@@ -33,7 +33,7 @@ from .qstash_store import QStashConfig, QStashStore
 from .redis_store import RedisStore
 from .search_store import SearchResult, SearchStore
 from .sync import MemorySync
-from .unified import CozyMemory, RecallResult, RecallStrategy
+from .unified import CozyMemory, RecallResult, RecallStrategy, RateLimitExceeded
 from .vector_store import VectorResult, VectorStore
 
 __version__ = "0.1.0"
@@ -43,6 +43,7 @@ __all__ = [
     "CozyConfig",
     "RecallStrategy",
     "RecallResult",
+    "RateLimitExceeded",
     "RedisStore",
     "RedisConfig",
     "VectorStore",

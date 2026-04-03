@@ -6,6 +6,8 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+from functools import wraps
+import threading
 
 from .config import CozyConfig
 from .libsql_store import Entity, LibSQLStore
@@ -15,6 +17,28 @@ from .search_store import SearchStore
 from .sync import MemorySync
 from .vector_store import VectorStore, VectorResult
 
+
+class RateLimitExceeded(Exception):
+    pass
+
+def rate_limited(limit: int, window: int):
+    """Decorator to limit method calls per instance based on sliding window."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            now = time.time()
+            with self._rate_limit_lock:
+                # Clean up old timestamps
+                while self._rate_limit_timestamps and self._rate_limit_timestamps[0] < now - window:
+                    self._rate_limit_timestamps.pop(0)
+
+                if len(self._rate_limit_timestamps) >= limit:
+                    raise RateLimitExceeded(f"Rate limit exceeded for {func.__name__}()")
+
+                self._rate_limit_timestamps.append(now)
+            return func(self, *args, **kwargs)
+        return wrapper
+    return decorator
 
 class RecallStrategy(Enum):
     """Which backend to query."""
@@ -64,6 +88,10 @@ class CozyMemory:
         self.libsql = LibSQLStore(self.config.libsql)
         self.qstash = QStashStore()
         self.sync = MemorySync(self.libsql, self.vector, self.redis)
+
+        # Lock and state for local rate limiting (e.g. store method)
+        self._rate_limit_lock = threading.Lock()
+        self._rate_limit_timestamps = []
 
     # ── Core Recall ────────────────────────────────────────────
 
@@ -173,6 +201,7 @@ class CozyMemory:
 
     # ── Store ──────────────────────────────────────────────────
 
+    @rate_limited(limit=10, window=60)
     def store(
         self,
         id: str,
